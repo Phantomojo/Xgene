@@ -1,0 +1,105 @@
+import tkinter as tk
+from tkinter import messagebox
+import datetime
+import json
+import os
+import io
+import google.auth
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
+
+class SalesSystem:
+    def __init__(self):
+        self.sales = []
+        self.products = {}
+        self.drive_service = None
+
+    def authenticate_drive(self):
+        """Authenticates with Google Drive API."""
+        creds, _ = google.auth.default()
+        self.drive_service = build("drive", "v3", credentials=creds)
+
+    def upload_sales_record_to_drive(self, file_path, folder_id=None):
+        """Uploads the sales record file to Google Drive."""
+        if not self.drive_service:
+            self.authenticate_drive()
+        file_metadata = {'name': os.path.basename(file_path)}
+        if folder_id:
+            file_metadata['parents'] = [folder_id]
+        media = MediaFileUpload(file_path, mimetype='application/json')
+        file = self.drive_service.files().create(body=file_metadata,
+                                                 media_body=media,
+                                                 fields='id').execute()
+        print(f"Uploaded file '{file_metadata['name']}' with ID: {file.get('id')}")
+
+    def list_files_in_folder(self, folder_id):
+        """Lists files in a specific folder in Google Drive."""
+        files = []
+        page_token = None
+        while True:
+            response = self.drive_service.files().list(q=f"'{folder_id}' in parents",
+                                                       fields='nextPageToken, files(id, name)',
+                                                       pageToken=page_token).execute()
+            files.extend(response.get('files', []))
+            page_token = response.get('nextPageToken', None)
+            if page_token is None:
+                break
+        return files
+
+    def download_file_from_drive(self, file_id, destination_folder):
+        """Downloads a file from Google Drive."""
+        request = self.drive_service.files().get_media(fileId=file_id)
+        file_path = os.path.join(destination_folder, file_id + '.json')
+        fh = io.FileIO(file_path, 'wb')
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print(f"Download {int(status.progress() * 100)}%.")
+        return file_path
+
+    # Existing methods...
+
+    def save_data(self, filename):
+        data = {"sales": self.sales, "products": self.products}
+        with open(filename, "w") as file:
+            json.dump(data, file)
+
+    def load_data(self, filename):
+        try:
+            with open(filename, "r") as file:
+                data = json.load(file)
+                self.sales = data.get("sales", [])
+                self.products = data.get("products", {})
+        except FileNotFoundError:
+            pass
+
+
+class SalesGUI:
+    def __init__(self, root):
+        self.sales_system = SalesSystem()
+        self.root = root
+        self.root.title("Sales Tracking System")
+        self.root.geometry("600x500")
+        self.root.configure(background="green")
+
+        # Existing GUI elements...
+
+    def upload_sales_record_to_drive(self):
+        file_path = "sales_record.json"  # Replace with actual file path
+        folder_id = "YOUR_FOLDER_ID"  # Replace with actual folder ID
+        self.sales_system.upload_sales_record_to_drive(file_path, folder_id)
+        messagebox.showinfo("Success", "Sales record uploaded to Google Drive.")
+
+    # Existing GUI methods...
+
+
+def main():
+    root = tk.Tk()
+    app = SalesGUI(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
