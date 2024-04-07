@@ -1,0 +1,49 @@
+import tkinter as tk
+from tkinter import messagebox
+import datetime
+
+class SalesSystem:
+    def __init__(self):
+        self.sales = []
+        self.products = {}  # Dictionary to store product names and their prices per kilo
+        self.total_sales = 0
+
+    def record_sale(self, product, price_per_kilo, weight):
+        total_price = price_per_kilo * weight
+        sale = {
+            "product": product,
+            "price_per_kilo": price_per_kilo,
+            "weight": weight,
+            "total_price": total_price,
+            "timestamp": datetime.datetime.now()
+        }
+        self.sales.append(sale)
+        self.total_sales += total_price
+
+    def calculate_total_sales(self):
+        return self.total_sales
+
+    def print_sales_report(self):
+        report = "Sales Report:\n"
+        for sale in self.sales:
+            report += f"Product: {sale['product']}, Price per Kilo: KSH {sale['price_per_kilo']}, Weight: {sale['weight']} kg, Total Price: KSH {sale['total_price']}, Timestamp: {sale['timestamp']}\n"
+        report += f"Total Sales for the day: KSH {self.calculate_total_sales()}"
+        return report
+
+    def add_product(self, product, price_per_kilo):
+        if product not in self.products:
+            self.products[product] = price_per_kilo
+        else:
+            messagebox.showerror("Error", "Product already exists.")
+
+    def update_product_price(self, product, new_price_per_kilo):
+        if product in self.products:
+            self.products[product] = new_price_per_kilo
+        else:
+            messagebox.showerror("Error", "Product not found.")
+
+    def delete_product(self, product):
+        if product in self.products:
+            del self.products[product]
+        else:
+            messagebox.showerror("Error", "Product not found.")
